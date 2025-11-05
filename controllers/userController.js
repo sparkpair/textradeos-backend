@@ -1,12 +1,15 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
+import connectDB from "../config/db.js";
 
 const generateToken = (id, sessionId) => {
   return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
 export const loginUser = async (req, res) => {
+  connectDB();
+
   const { username, password } = req.body;
 
   try {
