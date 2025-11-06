@@ -6,7 +6,10 @@ dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 
-connectDB();
+// For non-serverless (local, EC2, etc.)
+if (process.env.VERCEL !== "true") {
+  connectDB();
+}
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);

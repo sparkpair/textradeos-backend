@@ -8,8 +8,6 @@ const generateToken = (id, sessionId) => {
 };
 
 export const loginUser = async (req, res) => {
-  connectDB();
-
   const { username, password } = req.body;
 
   try {
