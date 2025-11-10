@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 import userRoutes from "./routes/userRoutes.js";
 import connectDB from "./config/db.js";
+import businessRoutes from "./routes/businessRoutes.js";
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use(async (req, res, next) => {
 
 // Routes
 app.use("/api/users", userRoutes);
+app.use("/api/businesses", businessRoutes);
 
 // Middlewares
 app.use(notFound);
