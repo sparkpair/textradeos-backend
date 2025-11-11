@@ -10,7 +10,6 @@ import {
 
 const router = express.Router();
 
-// /api/businesses
 router.route("/")
   .get(getBusinesses)
   .post(createBusiness);
