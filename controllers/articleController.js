@@ -1,6 +1,5 @@
 import Article from "../models/Article.js";
 import ArticleStock from "../models/ArticleStock.js";
-import Business from "../models/Business.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
 
@@ -16,13 +15,14 @@ const getCurrentStock = async (articleId) => {
 // 🔹 Create Article with optional initial stock
 export const createArticle = async (req, res) => {
   try {
+    const userId = req.user._id; // <- logged-in user's business ID
+    const businessId = req.user.businessId; // <- logged-in user's business ID
+
     const {
       article_no,
       season,
       size,
       category,
-      businessId,
-      userId,
       initialStock,
     } = req.body;
 
@@ -72,7 +72,6 @@ export const getArticles = async (req, res) => {
 
     // Fetch articles belonging to this business
     const articles = await Article.find({ businessId });
-    console.log("Business Articles", articles);
 
     // Add current stock for each article
     const articlesWithStock = await Promise.all(

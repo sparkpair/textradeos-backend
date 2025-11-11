@@ -4,19 +4,22 @@ import User from "../models/User.js";
 // 🔹 Create Customer
 export const createCustomer = async (req, res) => {
   try {
+    const userId = req.user._id; // <- logged-in user's business ID
+    const businessId = req.user.businessId; // <- logged-in user's business ID
+
     const { name, person_name, phone_no, address } = req.body;
 
-    // // Check if either phone_no OR name already exists
-    // const existingCustomer = await Customer.findOne({
-    //   $or: [{ phone_no }, { name }],
-    // });
+    // Check if either phone_no OR name already exists
+    const existingCustomer = await Customer.findOne({
+      $or: [{ phone_no }, { name }, { businessId }],
+    });
 
-    // if (existingCustomer) {
-    //   let message = "";
-    //   if (existingCustomer.phone_no === phone_no) message = "Phone number already exists";
-    //   else if (existingCustomer.name === name) message = "Customer name already exists";
-    //   return res.status(400).json({ message });
-    // }
+    if (existingCustomer) {
+      let message = "";
+      if (existingCustomer.phone_no === phone_no) message = "Phone number already exists";
+      else if (existingCustomer.name === name) message = "Customer name already exists";
+      return res.status(400).json({ message });
+    }
 
     // Create Customer
     const customer = await Customer.create({
@@ -24,6 +27,8 @@ export const createCustomer = async (req, res) => {
       person_name,
       phone_no,
       address,
+      userId,
+      businessId,
     });
 
     res.status(201).json(customer);
@@ -37,7 +42,9 @@ export const createCustomer = async (req, res) => {
 // 🔹 Get All Customers
 export const getCustomers = async (req, res) => {
   try {
-    const customers = await Customer.find();
+    const businessId = req.user.businessId; // <- logged-in user's business ID
+
+    const customers = await Customer.find({ businessId });
     res.status(200).json(customers);
   } catch (error) {
     res.status(500).json({ message: error.message });
