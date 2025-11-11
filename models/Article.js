@@ -6,9 +6,12 @@ const articleSchema = new mongoose.Schema(
     season: { type: String, required: true, trim: true },
     size: { type: String, required: true, trim: true },
     category: { type: String, required: true, trim: true },
-    
+    type: { type: String, required: true, trim: true },
+    purchase_price: { type: Number, required: true, min: 1 },
+    selling_price: { type: Number, required: true, min: 1 },
+
     businessId: { type: mongoose.Schema.Types.ObjectId, ref: "Business", required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // who added this article
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   },
   { timestamps: true }
 );

@@ -23,7 +23,10 @@ export const createArticle = async (req, res) => {
       season,
       size,
       category,
-      initialStock,
+      type,
+      initial_stock,
+      purchase_price,
+      selling_price,
     } = req.body;
 
     // Check if article_no already exists for the same business
@@ -40,15 +43,18 @@ export const createArticle = async (req, res) => {
       season,
       size,
       category,
+      type,
+      purchase_price,
+      selling_price,
       businessId,
       userId,
     });
 
     // Add initial stock if provided
-    if (initialStock && initialStock > 0) {
+    if (initial_stock && initial_stock > 0) {
       await ArticleStock.create({
         articleId: article._id,
-        quantity: initialStock,
+        quantity: initial_stock,
         type: "in",
         businessId,
         userId,
