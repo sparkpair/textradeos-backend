@@ -11,14 +11,14 @@ export const createCustomer = async (req, res) => {
 
     // Check if either phone_no OR name already exists
     const existingCustomer = await Customer.findOne({
-      $or: [{ phone_no }, { name }, { businessId }],
+      $or: [{ phone_no }, { name }],
     });
 
     if (existingCustomer) {
       let message = "";
       if (existingCustomer.phone_no === phone_no) message = "Phone number already exists";
       else if (existingCustomer.name === name) message = "Customer name already exists";
-      return res.status(400).json({ message });
+      return res.status(400).json({ existingCustomer, message });
     }
 
     // Create Customer
