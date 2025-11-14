@@ -7,6 +7,7 @@ import connectDB from "./config/db.js";
 import businessRoutes from "./routes/businessRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import articleRoutes from "./routes/articleRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
 import { protect } from "./middlewares/authMiddleware.js";
 
 dotenv.config();
@@ -31,6 +32,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/businesses", protect, businessRoutes);
 app.use("/api/customers", protect, customerRoutes);
 app.use("/api/articles", protect, articleRoutes);
+app.use("/api/payments", protect, paymentRoutes);
 
 // Middlewares
 app.use(notFound);
