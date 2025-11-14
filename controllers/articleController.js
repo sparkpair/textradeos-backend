@@ -124,20 +124,15 @@ export const updateArticle = async (req, res) => {
     const article = await Article.findById(req.params.id);
     if (!article) return res.status(404).json({ message: "Article not found" });
 
-    // Update linked user if userId provided
-    if (req.body.userId) {
-      const user = await User.findById(req.body.userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-      article.userId = req.body.userId;
-    }
-
     // Update article fields
     const fieldsToUpdate = [
       "article_no",
       "season",
       "size",
       "category",
-      "businessId",
+      "type",
+      "purchase_price",
+      "selling_price",
     ];
     fieldsToUpdate.forEach((field) => {
       if (req.body[field] !== undefined) {
