@@ -27,12 +27,62 @@ export const createCustomer = async (req, res) => {
 };
 
 
-// 🔹 Get All Customers
+// 🔹 Get All Customers with Balance
 export const getCustomers = async (req, res) => {
   try {
-    const businessId = req.user.businessId; // <- logged-in user's business ID
+    const businessId = req.user.businessId;
 
-    const customers = await Customer.find({ businessId });
+    const customers = await Customer.aggregate([
+      { $match: { businessId } },
+
+      // ---- Invoices Total ----
+      {
+        $lookup: {
+          from: "invoices",
+          localField: "_id",
+          foreignField: "customerId",
+          as: "invoices",
+        },
+      },
+      {
+        $addFields: {
+          totalInvoices: { $sum: "$invoices.total" }
+        }
+      },
+
+      // ---- Payments Total ----
+      {
+        $lookup: {
+          from: "payments",
+          localField: "_id",
+          foreignField: "customerId",
+          as: "payments",
+        },
+      },
+      {
+        $addFields: {
+          totalPayments: { $sum: "$payments.amount" }
+        }
+      },
+
+      // ---- Final Balance ----
+      {
+        $addFields: {
+          balance: {
+            $subtract: ["$totalInvoices", "$totalPayments"]
+          }
+        }
+      },
+
+      // ---- Clean extra arrays ----
+      {
+        $project: {
+          invoices: 0,
+          payments: 0
+        }
+      }
+    ]);
+
     res.status(200).json(customers);
   } catch (error) {
     res.status(500).json({ message: error.message });
