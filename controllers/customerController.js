@@ -46,7 +46,7 @@ export const getCustomers = async (req, res) => {
       },
       {
         $addFields: {
-          totalInvoices: { $sum: "$invoices.total" }
+          totalInvoices: { $sum: "$invoices.netAmount" }
         }
       },
 

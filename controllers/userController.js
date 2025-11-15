@@ -11,7 +11,7 @@ export const loginUser = async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username }).populate("businessId", "name");
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
@@ -42,6 +42,7 @@ export const loginUser = async (req, res) => {
       name: user.name,
       username: user.username,
       role: user.role,
+      businessName: user.businessId.name,
       token,
       sessionId: session._id, // 👈 send sessionId to frontend
     });
