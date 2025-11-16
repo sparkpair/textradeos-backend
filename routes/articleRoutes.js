@@ -4,6 +4,7 @@ import {
   getArticles,
   getArticleById,
   updateArticle,
+  addStock,
 } from "../controllers/articleController.js";
 
 const router = express.Router();
@@ -15,5 +16,8 @@ router.route("/")
 router.route("/:id")
   .get(getArticleById)
   .put(updateArticle);
+
+router.route("/add-stock")
+  .post(addStock);
 
 export default router;
