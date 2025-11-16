@@ -100,6 +100,7 @@ export const getInvoices = async (req, res) => {
 
     const invoices = await Invoice.find({ businessId })
       .populate("customerId", "name phone_no")
+      .populate("items.articleId", "article_no")
       .sort({ createdAt: -1 });
 
     res.status(200).json(invoices);
