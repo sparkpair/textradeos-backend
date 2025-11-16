@@ -1,15 +1,39 @@
 import Article from "../models/Article.js";
 import ArticleStock from "../models/ArticleStock.js";
+import Invoice from "../models/Invoice.js";
 import User from "../models/User.js";
 import mongoose from "mongoose";
 
 // 🔹 Helper: Get current stock of an article
-const getCurrentStock = async (articleId) => {
-  const result = await ArticleStock.aggregate([
-    { $match: { articleId: new mongoose.Types.ObjectId(articleId) } },
-    { $group: { _id: "$articleId", totalQuantity: { $sum: "$quantity" } } },
+// const getCurrentStock = async (articleId) => {
+//   const result = await ArticleStock.aggregate([
+//     { $match: { articleId: new mongoose.Types.ObjectId(articleId) } },
+//     { $group: { _id: "$articleId", totalQuantity: { $sum: "$quantity" } } },
+//   ]);
+//   return result[0]?.totalQuantity || 0;
+// };
+export const getCurrentStock = async (articleId) => {
+  const articleObjectId = new mongoose.Types.ObjectId(articleId);
+
+  // 🔹 Sum of added stock
+  const stockResult = await ArticleStock.aggregate([
+    { $match: { articleId: articleObjectId } },
+    { $group: { _id: "$articleId", totalAdded: { $sum: "$quantity" } } },
   ]);
-  return result[0]?.totalQuantity || 0;
+
+  const totalAdded = stockResult[0]?.totalAdded || 0;
+
+  // 🔹 Sum of sold stock from invoices
+  const invoiceResult = await Invoice.aggregate([
+    { $match: { "items.articleId": articleObjectId } },
+    { $unwind: "$items" },
+    { $match: { "items.articleId": articleObjectId } },
+    { $group: { _id: "$items.articleId", totalSold: { $sum: "$items.quantity" } } },
+  ]);
+
+  const totalSold = invoiceResult[0]?.totalSold || 0;
+
+  return totalAdded - totalSold;
 };
 
 // 🔹 Create Article with optional initial stock

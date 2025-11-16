@@ -80,7 +80,17 @@ export const createInvoice = async (req, res) => {
       businessId,
     });
 
-    res.status(201).json(invoice);
+    const populatedInvoice = await Invoice.findById(invoice._id)
+      .populate({
+        path: "customerId",
+        select: "_id name phone_no",
+      })
+      .populate({
+        path: "items.articleId",
+        select: "_id article_no",
+      });
+
+    res.status(201).json(populatedInvoice);
   } catch (error) {
     console.error("Error creating invoice:", error);
 
