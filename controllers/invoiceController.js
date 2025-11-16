@@ -1,5 +1,6 @@
 import Invoice from "../models/Invoice.js";
 import Article from "../models/Article.js";
+import { getCurrentStock } from "./articleController.js";
 
 const generateInvoiceNumber = async (businessId) => {
   const year = new Date().getFullYear().toString().slice(-2); // "25"
@@ -27,27 +28,24 @@ export const createInvoice = async (req, res) => {
     const userId = req.user._id;
     const businessId = req.user.businessId;
 
-    const {
-      customerId,
-      items,
-      discount = 0,
-      grossAmount,
-      netAmount,
-    } = req.body;
+    const { customerId, items, discount = 0, grossAmount, netAmount } = req.body;
 
-    if (!customerId) {
-      return res.status(400).json({ message: "Customer ID is required" });
-    }
-    if (!Array.isArray(items) || items.length === 0) {
+    if (!customerId) return res.status(400).json({ message: "Customer ID is required" });
+    if (!Array.isArray(items) || items.length === 0)
       return res.status(400).json({ message: "Invoice must contain items" });
-    }
 
     // Validate item structure
     for (const item of items) {
       if (!item.articleId || !item.quantity) {
-        return res
-          .status(400)
-          .json({ message: "Each item must include articleId and quantity" });
+        return res.status(400).json({ message: "Each item must include articleId and quantity" });
+      }
+
+      // ✅ Check stock for each article
+      const currentStock = await getCurrentStock(item.articleId);
+      if (item.quantity > currentStock) {
+        return res.status(400).json({
+          message: `Not enough stock for article ${item.articleId}. Available: ${currentStock}`,
+        });
       }
     }
 
@@ -65,10 +63,10 @@ export const createInvoice = async (req, res) => {
       selling_price_snapshot: articlePrices[item.articleId],
     }));
 
-    // 🔥 Generate invoice number
+    // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(businessId);
 
-    // Create Invoice
+    // Create invoice
     const invoice = await Invoice.create({
       invoiceNumber,
       customerId,
@@ -80,26 +78,17 @@ export const createInvoice = async (req, res) => {
       businessId,
     });
 
+    // Populate customer and articles
     const populatedInvoice = await Invoice.findById(invoice._id)
-      .populate({
-        path: "customerId",
-        select: "_id name phone_no",
-      })
-      .populate({
-        path: "items.articleId",
-        select: "_id article_no",
-      });
+      .populate({ path: "customerId", select: "_id name phone_no" })
+      .populate({ path: "items.articleId", select: "_id article_no" });
 
     res.status(201).json(populatedInvoice);
   } catch (error) {
     console.error("Error creating invoice:", error);
-
     if (error.code === 11000) {
-      return res.status(400).json({
-        message: "Duplicate invoice number. Please try again.",
-      });
+      return res.status(400).json({ message: "Duplicate invoice number. Please try again." });
     }
-
     res.status(500).json({ message: error.message });
   }
 };
