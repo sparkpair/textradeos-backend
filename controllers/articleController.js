@@ -185,3 +185,30 @@ export const updateArticle = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+export const addStock = async (req, res) => {
+  try {
+    const userId = req.user._id; // <- logged-in user's business ID
+    const businessId = req.user.businessId; // <- logged-in user's business ID
+
+    const {
+      articleId,
+      quantity,
+    } = req.body;
+
+    // add stock
+    await ArticleStock.create({
+      articleId: articleId,
+      quantity: quantity,
+      type: "in",
+      businessId,
+      userId,
+      note: "add stock",
+    });
+
+    res.status(201).json({ message: "Stock added successsfully." });
+  } catch (error) {
+    console.error("Error adding stock:", error);
+    res.status(400).json({ message: error.message });
+  }
+};
