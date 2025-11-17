@@ -218,7 +218,7 @@ export const generateStatement = async (req, res) => {
         date: inv.createdAt,
         debit: inv.netAmount || 0,
         credit: 0,
-        ref: inv.Invoice_no || inv._id,
+        ref: inv.invoiceNumber,
       })),
       ...payments.map(pay => ({
         type: "Payment",
@@ -226,7 +226,7 @@ export const generateStatement = async (req, res) => {
         date: pay.date,
         debit: 0,
         credit: pay.amount || 0,
-        ref: pay._id,
+        ref: pay.cheque_no || pay.slip_no || pay.transaction_id || '-',
       })),
     ];
 
