@@ -1,5 +1,7 @@
 import Customer from "../models/Customer.js";
 import User from "../models/User.js";
+import Invoice from "../models/Invoice.js";
+import Payment from "../models/Payment.js";
 
 // 🔹 Create Customer
 export const createCustomer = async (req, res) => {
@@ -152,6 +154,105 @@ export const toggleCustomerStatus = async (req, res) => {
       customer,
     });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 🔹 Generate Statement with dynamic opening balance
+export const generateStatement = async (req, res) => {
+  try {
+    const customerId = req.params.id;
+    const businessId = req.user.businessId;
+    let { date_from, date_to } = req.body;
+
+    const customer = await Customer.findOne({ _id: customerId, businessId });
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+
+    // 1️⃣ Parse dates safely and normalize to start/end of day
+    let fromDateObj = date_from ? new Date(date_from) : null;
+    let toDateObj = date_to ? new Date(date_to) : new Date();
+
+    if (fromDateObj) fromDateObj.setHours(0, 0, 0, 0); // start of fromDate
+    if (toDateObj) toDateObj.setHours(23, 59, 59, 999); // end of toDate
+
+    // 2️⃣ Calculate Opening Balance (strictly before fromDate)
+    let openingBalance = 0;
+    if (fromDateObj) {
+      const pastInvoices = await Invoice.find({
+        customerId,
+        businessId,
+        createdAt: { $lt: fromDateObj },
+      });
+      const pastPayments = await Payment.find({
+        customerId,
+        businessId,
+        date: { $lt: fromDateObj },
+      });
+
+      const totalPastInvoices = pastInvoices.reduce((sum, inv) => sum + (inv.netAmount || 0), 0);
+      const totalPastPayments = pastPayments.reduce((sum, pay) => sum + (pay.amount || 0), 0);
+
+      openingBalance = totalPastInvoices - totalPastPayments;
+    }
+
+    // 3️⃣ Fetch ledger data (between fromDate and toDate inclusive)
+    const invoiceQuery = {
+      customerId,
+      businessId,
+      ...(fromDateObj || toDateObj ? { createdAt: { ...(fromDateObj ? { $gte: fromDateObj } : {}), ...(toDateObj ? { $lte: toDateObj } : {}) } } : {}),
+    };
+    const invoices = await Invoice.find(invoiceQuery).sort({ createdAt: 1 });
+
+    const paymentQuery = {
+      customerId,
+      businessId,
+      ...(fromDateObj || toDateObj ? { date: { ...(fromDateObj ? { $gte: fromDateObj } : {}), ...(toDateObj ? { $lte: toDateObj } : {}) } } : {}),
+    };
+    const payments = await Payment.find(paymentQuery).sort({ date: 1 });
+
+    // 4️⃣ Combine ledger
+    const ledger = [
+      ...invoices.map(inv => ({
+        type: "Invoice",
+        amount: inv.netAmount || 0,
+        date: inv.createdAt,
+        debit: inv.netAmount || 0,
+        credit: 0,
+        ref: inv.Invoice_no || inv._id,
+      })),
+      ...payments.map(pay => ({
+        type: "Payment",
+        amount: pay.amount || 0,
+        date: pay.date,
+        debit: 0,
+        credit: pay.amount || 0,
+        ref: pay._id,
+      })),
+    ];
+
+    // Sort ledger by date
+    ledger.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // 5️⃣ Calculate running balance
+    let balance = openingBalance;
+    ledger.forEach(row => {
+      balance += row.debit - row.credit;
+      row.balance = balance;
+    });
+
+    // 6️⃣ Summary totals
+    const totalInvoices = invoices.reduce((sum, i) => sum + (i.netAmount || 0), 0);
+    const totalPayments = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const closingBalance = balance;
+
+    res.status(200).json({
+      customer: { id: customer._id, name: customer.name },
+      totals: { openingBalance, totalInvoices, totalPayments, closingBalance },
+      ledger,
+    });
+
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: error.message });
   }
 };

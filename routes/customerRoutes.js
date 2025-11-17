@@ -6,6 +6,7 @@ import {
   updateCustomer,
   deleteCustomer,
   toggleCustomerStatus,
+  generateStatement,
 } from "../controllers/customerController.js";
 
 const router = express.Router();
@@ -20,5 +21,7 @@ router.route("/:id")
   .delete(deleteCustomer);
 
 router.patch("/:id/toggle", toggleCustomerStatus);
+
+router.patch("/:id/statement", generateStatement);
 
 export default router;
