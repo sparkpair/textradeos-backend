@@ -42,7 +42,7 @@ export const loginUser = async (req, res) => {
       name: user.name,
       username: user.username,
       role: user.role,
-      businessName: user.businessId.name,
+      businessName: user.businessId?.name || null,
       token,
       sessionId: session._id, // 👈 send sessionId to frontend
     });
