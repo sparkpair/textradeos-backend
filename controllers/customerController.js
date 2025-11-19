@@ -246,7 +246,8 @@ export const generateStatement = async (req, res) => {
     const closingBalance = balance;
 
     res.status(200).json({
-      customer: { id: customer._id, name: customer.name },
+      dates: { from: date_from, to: date_to },
+      customer: { id: customer._id, name: customer.name, phone_no: customer.phone_no },
       totals: { openingBalance, totalInvoices, totalPayments, closingBalance },
       ledger,
     });
