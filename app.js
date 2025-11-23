@@ -9,6 +9,7 @@ import customerRoutes from "./routes/customerRoutes.js";
 import articleRoutes from "./routes/articleRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 import { protect } from "./middlewares/authMiddleware.js";
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.use("/api/customers", protect, customerRoutes);
 app.use("/api/articles", protect, articleRoutes);
 app.use("/api/invoices", protect, invoiceRoutes);
 app.use("/api/payments", protect, paymentRoutes);
+app.use("/api/dashboard", protect, dashboardRoutes);
 
 // Middlewares
 app.use(notFound);
