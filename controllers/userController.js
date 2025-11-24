@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 import connectDB from "../config/db.js";
+import Business from "../models/Business.js";
 
 const generateToken = (id, sessionId) => {
   return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -12,6 +13,7 @@ export const loginUser = async (req, res) => {
 
   try {
     const user = await User.findOne({ username }).populate("businessId", "name");
+    const businessId = user.businessId._id;
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
@@ -22,6 +24,20 @@ export const loginUser = async (req, res) => {
       return res
         .status(403)
         .json({ message: "User already logged in from another device." });
+    }
+
+    const isActive = await User.findOne({ username }).where({isActive: true});
+    if (!isActive) {
+      return res
+        .status(403)
+        .json({ message: "User is inactive." });
+    }
+    
+    const businessIsActive = await Business.findOne({ _id: businessId }).where({isActive: true});
+    if (!businessIsActive) {
+      return res
+        .status(403)
+        .json({ message: "Business is inactive." });
     }
 
     // ✅ Create new session
@@ -82,18 +98,11 @@ export const logoutUser = async (req, res) => {
   }
 };
 
-// @desc Get Profile
-// @route GET /api/users/profile
-// @access Private
-export const getUserProfile = async (req, res) => {
+export const getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.params.id);
     if (user) {
-      res.json({
-        _id: user.id,
-        name: user.name,
-        email: user.email,
-      });
+      res.json(user);
     } else {
       res.status(404).json({ message: "User not found" });
     }

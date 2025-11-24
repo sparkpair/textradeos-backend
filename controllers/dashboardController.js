@@ -35,14 +35,17 @@ export const stats = async (req, res) => {
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
 
-    // Total customers for this business
-    const customers = await Customer.countDocuments({ businessId });
+    // **monthly payments for this business**
+    const monthlyPayments = await Payment.aggregate([
+      { $match: { createdAt: { $gte: monthStart }, businessId } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
 
     res.json({
       todaySales: todaySales[0]?.total || 0,
       monthlySales: monthlySales[0]?.total || 0,
       todayPayments: todayPayments[0]?.total || 0,
-      customers
+      monthlyPayments: monthlyPayments[0]?.total || 0,
     });
   } catch (err) {
     console.error(err);
