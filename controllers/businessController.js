@@ -112,7 +112,6 @@ export const toggleBusinessStatus = async (req, res) => {
       businessId: business._id,
       isActive: business.isActive,
     });
-    console.log("emitted");
     
     res.status(200).json({
       message: `Business is now ${business.isActive ? "Active" : "Inactive"}`,
