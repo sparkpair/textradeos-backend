@@ -14,13 +14,9 @@ if (process.env.VERCEL !== "true") {
 }
 
 // Create HTTP server and bind Socket.IO
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: {
-    origin: "*", // 👈 you can restrict this to your frontend URL
-    methods: ["GET", "POST"],
-  },
+export const server = http.createServer(app);
+export const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
 // 🔹 Socket.IO connection handling

@@ -13,7 +13,7 @@ export const loginUser = async (req, res) => {
 
   try {
     const user = await User.findOne({ username }).populate("businessId", "name");
-    const businessId = user.businessId._id;
+    const businessId = user.businessId?._id;
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
@@ -33,11 +33,13 @@ export const loginUser = async (req, res) => {
         .json({ message: "User is inactive." });
     }
     
-    const businessIsActive = await Business.findOne({ _id: businessId }).where({isActive: true});
-    if (!businessIsActive) {
-      return res
-        .status(403)
-        .json({ message: "Business is inactive." });
+    if (user.role !== 'developer') {
+      const businessIsActive = await Business.findOne({ _id: businessId }).where({isActive: true});
+      if (!businessIsActive) {
+        return res
+          .status(403)
+          .json({ message: "Business is inactive." });
+      }
     }
 
     // ✅ Create new session
@@ -58,6 +60,7 @@ export const loginUser = async (req, res) => {
       name: user.name,
       username: user.username,
       role: user.role,
+      businessId: user.businessId?._id || null,
       businessName: user.businessId?.name || null,
       token,
       sessionId: session._id, // 👈 send sessionId to frontend

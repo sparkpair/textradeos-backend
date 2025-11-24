@@ -1,5 +1,6 @@
 import Business from "../models/Business.js";
 import User from "../models/User.js";
+import { io } from "../server.js";
 
 // 🔹 Create Business + Linked User
 export const createBusiness = async (req, res) => {
@@ -106,6 +107,13 @@ export const toggleBusinessStatus = async (req, res) => {
     business.isActive = !business.isActive;
     await business.save();
 
+    // emit inactive wth business id
+    io.emit("business-status-changed", {
+      businessId: business._id,
+      isActive: business.isActive,
+    });
+    console.log("emitted");
+    
     res.status(200).json({
       message: `Business is now ${business.isActive ? "Active" : "Inactive"}`,
       business,
