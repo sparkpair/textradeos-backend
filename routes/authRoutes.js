@@ -1,38 +1,49 @@
 // routes/auth.js
 import express from "express";
 import User from "../models/User.js";
-import Business from "../models/Business.js";
 import { protect } from "../middlewares/authMiddleware.js"; // verifies JWT token
+import Subscription from "../models/Subscription.js";
 
 const router = express.Router();
 
 // GET /auth/status
 router.get("/status", protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate("businessId");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findById(req.user.id).populate("businessId");
 
-    // Check user status
-    if (!user.isActive) {
-      return res.status(403).json({ message: "User is inactive" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid token" });
 
-    // If role is not developer, check business status
     if (user.role !== "developer") {
       const business = user.businessId;
+
       if (!business || !business.isActive) {
         return res.status(403).json({ message: "Business is inactive" });
       }
+
+      const subscription = await Subscription.findOne({
+        businessId: business._id
+      }).sort({ endDate: -1 });
+
+      if (!subscription) {
+        return res.status(403).json({ message: "No subscription found." });
+      }
+
+      const now = new Date();
+
+      if (now < new Date(subscription.startDate)) {
+        return res.status(403).json({
+          message: `Subscription not started yet. Starts on ${subscription.startDate.toDateString()}.`
+        });
+      }
+
+      if (now > new Date(subscription.endDate)) {
+        return res.status(403).json({ message: "Subscription expired." });
+      }
     }
 
-    res.json({
-      message: "User active",
-      user,
-      business: user.businessId || null,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.json({ user });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

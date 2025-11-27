@@ -9,6 +9,7 @@ import customerRoutes from "./routes/customerRoutes.js";
 import articleRoutes from "./routes/articleRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import { protect } from "./middlewares/authMiddleware.js";
@@ -38,6 +39,7 @@ app.use("/api/customers", protect, customerRoutes);
 app.use("/api/articles", protect, articleRoutes);
 app.use("/api/invoices", protect, invoiceRoutes);
 app.use("/api/payments", protect, paymentRoutes);
+app.use("/api/subscriptions", protect, subscriptionRoutes);
 app.use("/api/dashboard", protect, dashboardRoutes);
 
 // Middlewares

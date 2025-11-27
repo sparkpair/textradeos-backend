@@ -1,8 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
-import connectDB from "../config/db.js";
-import Business from "../models/Business.js";
+import Subscription from "../models/Subscription.js";
 
 const generateToken = (id, sessionId) => {
   return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -12,44 +11,65 @@ export const loginUser = async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await User.findOne({ username }).populate("businessId", "name");
-    const businessId = user.businessId?._id;
+    const user = await User.findOne({ username })
+      .populate("businessId", "name isActive");
+
     if (!user || !(await user.matchPassword(password))) {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    // ❌ Already logged in?
+    // 🔹 CHECK ACTIVE SESSION
     const activeSession = await Session.findOne({ userId: user._id, isActive: true });
     if (activeSession) {
-      return res
-        .status(403)
-        .json({ message: "User already logged in from another device." });
+      return res.status(403).json({ message: "User already logged in from another device." });
     }
 
-    const isActive = await User.findOne({ username }).where({isActive: true});
-    if (!isActive) {
-      return res
-        .status(403)
-        .json({ message: "User is inactive." });
+    // 🔹 USER INACTIVE?
+    if (!user.isActive) {
+      return res.status(403).json({ message: "User is inactive." });
     }
-    
-    if (user.role !== 'developer') {
-      const businessIsActive = await Business.findOne({ _id: businessId }).where({isActive: true});
-      if (!businessIsActive) {
-        return res
-          .status(403)
-          .json({ message: "Business is inactive." });
+
+    // 🔹 Developer bypasses business & subscription checks
+    if (user.role !== "developer") {
+      const business = user.businessId;
+
+      // ❌ BUSINESS INACTIVE
+      if (!business || !business.isActive) {
+        return res.status(403).json({ message: "Business is inactive." });
+      }
+
+      // 🔍 GET LATEST SUBSCRIPTION
+      const subscription = await Subscription.findOne({
+        businessId: business._id
+      }).sort({ endDate: -1 });
+
+      // ❌ NO SUBSCRIPTION
+      if (!subscription) {
+        return res.status(403).json({ message: "No subscription found." });
+      }
+
+      const now = new Date();
+
+      // ❌ START DATE NOT REACHED
+      if (now < new Date(subscription.startDate)) {
+        return res.status(403).json({
+          message: `Your subscription starts on ${subscription.startDate.toDateString()}.`
+        });
+      }
+
+      // ❌ ENDED
+      if (now > new Date(subscription.endDate)) {
+        return res.status(403).json({ message: "Subscription expired." });
       }
     }
 
-    // ✅ Create new session
+    // 🔹 CREATE NEW SESSION
     const session = await Session.create({
       userId: user._id,
       userAgent: req.headers["user-agent"],
       ipAddress: req.ip,
     });
 
-    // Update user info
     user.lastLogin = new Date();
     await user.save();
 
@@ -63,7 +83,7 @@ export const loginUser = async (req, res) => {
       businessId: user.businessId?._id || null,
       businessName: user.businessId?.name || null,
       token,
-      sessionId: session._id, // 👈 send sessionId to frontend
+      sessionId: session._id,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
