@@ -4,7 +4,9 @@ import Session from "../models/Session.js";
 import Subscription from "../models/Subscription.js";
 
 const generateToken = (id, sessionId) => {
-  return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign({ id, sessionId }, process.env.JWT_SECRET, {
+    expiresIn: "30d",
+  });
 };
 
 export const loginUser = async (req, res) => {
@@ -18,52 +20,55 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    // 🔹 CHECK ACTIVE SESSION
+    // Already logged in from another device?
     const activeSession = await Session.findOne({ userId: user._id, isActive: true });
     if (activeSession) {
-      return res.status(403).json({ message: "User already logged in from another device." });
+      return res.status(403).json({ message: "User already logged in on another device." });
     }
 
-    // 🔹 USER INACTIVE?
+    // User inactive?
     if (!user.isActive) {
       return res.status(403).json({ message: "User is inactive." });
     }
 
-    // 🔹 Developer bypasses business & subscription checks
+    // ------------------------
+    // Developer → NO CHECKS
+    // ------------------------
     if (user.role !== "developer") {
+
       const business = user.businessId;
 
-      // ❌ BUSINESS INACTIVE
       if (!business || !business.isActive) {
         return res.status(403).json({ message: "Business is inactive." });
       }
 
-      // 🔍 GET LATEST SUBSCRIPTION
+      // Latest subscription (multiple allowed)
       const subscription = await Subscription.findOne({
         businessId: business._id
       }).sort({ endDate: -1 });
 
-      // ❌ NO SUBSCRIPTION
       if (!subscription) {
         return res.status(403).json({ message: "No subscription found." });
       }
 
       const now = new Date();
+      const start = new Date(subscription.startDate);
+      const end = new Date(subscription.endDate);
 
-      // ❌ START DATE NOT REACHED
-      if (now < new Date(subscription.startDate)) {
+      if (now < start) {
         return res.status(403).json({
-          message: `Your subscription starts on ${subscription.startDate.toDateString()}.`
+          message: `Your subscription starts on ${start.toDateString()}.`
         });
       }
 
-      // ❌ ENDED
-      if (now > new Date(subscription.endDate)) {
-        return res.status(403).json({ message: "Subscription expired." });
+      if (now > end) {
+        return res.status(403).json({
+          message: `Subscription expired on ${end.toDateString()}.`
+        });
       }
     }
 
-    // 🔹 CREATE NEW SESSION
+    // Create session
     const session = await Session.create({
       userId: user._id,
       userAgent: req.headers["user-agent"],
@@ -85,6 +90,7 @@ export const loginUser = async (req, res) => {
       token,
       sessionId: session._id,
     });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -95,8 +101,9 @@ export const logoutUser = async (req, res) => {
     const { sessionId } = req.body;
 
     if (!sessionId) {
-      return res.status(400).json({ message: "Session ID is required" });
+      return res.status(400).json({ message: "Session ID required" });
     }
+
     const session = await Session.findById(sessionId);
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -105,7 +112,7 @@ export const logoutUser = async (req, res) => {
     if (!session.isActive) {
       return res.status(200).json({ message: "Already logged out" });
     }
-    
+
     session.logoutTime = new Date();
     session.isActive = false;
     session.duration = Math.floor(
@@ -115,8 +122,8 @@ export const logoutUser = async (req, res) => {
     await session.save();
 
     res.json({ message: "Logout successful" });
+
   } catch (error) {
-    console.error("Logout error:", error.message);
     res.status(500).json({ message: "Server error during logout" });
   }
 };
@@ -124,11 +131,7 @@ export const logoutUser = async (req, res) => {
 export const getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (user) {
-      res.json(user);
-    } else {
-      res.status(404).json({ message: "User not found" });
-    }
+    user ? res.json(user) : res.status(404).json({ message: "User not found" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
