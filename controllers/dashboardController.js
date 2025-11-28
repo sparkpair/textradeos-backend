@@ -80,19 +80,16 @@ export const stats = async (req, res) => {
     // =====================================================
     //                 🟡  NORMAL USER DASHBOARD
     // =====================================================
-    // Today sales
     const todaySales = await Invoice.aggregate([
       { $match: { businessId, createdAt: { $gte: today } } },
       { $group: { _id: null, total: { $sum: "$netAmount" } } }
     ]);
 
-    // Monthly sales
     const monthlySales = await Invoice.aggregate([
       { $match: { businessId, createdAt: { $gte: monthStart } } },
       { $group: { _id: null, total: { $sum: "$netAmount" } } }
     ]);
 
-    // Today's payments
     const todayPayments = await Payment.aggregate([
       { 
         $match: { 
@@ -103,13 +100,11 @@ export const stats = async (req, res) => {
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
 
-    // Monthly payments
     const monthlyPayments = await Payment.aggregate([
       { $match: { businessId, createdAt: { $gte: monthStart } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
     ]);
 
-    // Normal user response
     return res.json({
       role: "user",
       todaySales: todaySales[0]?.total || 0,
@@ -136,71 +131,33 @@ export const sales = async (req, res) => {
     const endDate = new Date(end);
     endDate.setHours(23, 59, 59, 999);
 
-    // Developer Chart = New Businesses Per Day
     if (role === "developer") {
       const result = await Business.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: startDate, $lte: endDate }
-          }
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            total: { $sum: 1 }
-          }
-        },
+        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, total: { $sum: 1 } } },
         { $sort: { "_id": 1 } }
       ]);
 
       return res.json(result.map(r => ({ date: r._id, amount: r.total })));
     }
 
-    // Admin Chart = Daily Sales of Business
     if (role === "admin") {
       const result = await Invoice.aggregate([
-        {
-          $match: {
-            businessId,
-            createdAt: { $gte: startDate, $lte: endDate }
-          }
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            totalAmount: { $sum: "$netAmount" }
-          }
-        },
+        { $match: { businessId, createdAt: { $gte: startDate, $lte: endDate } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalAmount: { $sum: "$netAmount" } } },
         { $sort: { "_id": 1 } }
       ]);
 
-      return res.json(result.map(r => ({
-        date: r._id,
-        amount: r.totalAmount
-      })));
+      return res.json(result.map(r => ({ date: r._id, amount: r.totalAmount })));
     }
 
-    // Normal User Chart
     const result = await Invoice.aggregate([
-      {
-        $match: {
-          businessId,
-          createdAt: { $gte: startDate, $lte: endDate }
-        }
-      },
-      {
-        $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-          totalAmount: { $sum: "$netAmount" }
-        }
-      },
+      { $match: { businessId, createdAt: { $gte: startDate, $lte: endDate } } },
+      { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, totalAmount: { $sum: "$netAmount" } } },
       { $sort: { "_id": 1 } }
     ]);
 
-    return res.json(result.map(r => ({
-      date: r._id,
-      amount: r.totalAmount
-    })));
+    return res.json(result.map(r => ({ date: r._id, amount: r.totalAmount })));
 
   } catch (err) {
     console.error(err);
@@ -208,7 +165,8 @@ export const sales = async (req, res) => {
   }
 };
 
-export const getLogedInUsers = async (req, res) => {
+// 3️⃣ Logged-in Users
+export const getLoggedInUsers = async (req, res) => {
   try {
     const sessions = await Session.find({ isActive: true }).populate({
       path: "userId",
@@ -227,7 +185,7 @@ export const getLogedInUsers = async (req, res) => {
         name: s.userId.name,
         businessId: s.userId.businessId?._id || null,
         businessName: s.userId.businessId?.name || "N/A",
-        loginTime: s.loginTime,
+        loginTime: s.loginTime || s.createdAt, // fallback if loginTime missing
         lastActive: s.updatedAt,
         ipAddress: s.ipAddress || null,
         userAgent: s.userAgent || null
