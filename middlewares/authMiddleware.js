@@ -14,7 +14,16 @@ export const protect = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+
+    // Fetch user from DB
+    const user = await User.findById(decoded.id)
+      .populate("businessId", "name isActive");
+
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
+
+    req.user = user;
     next();
   } catch (error) {
     res.status(401).json({ message: "Not authorized, token failed" });
