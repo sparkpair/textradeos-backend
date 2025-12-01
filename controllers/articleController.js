@@ -94,7 +94,6 @@ export const getArticles = async (req, res) => {
     const businessId = req.user.businessId; // <- logged-in user's business ID
     // Fetch articles belonging to this business
     const articles = await Article.find({ businessId });
-    console.log({ businessId, articles });
 
     // Add current stock for each article
     const articlesWithStock = await Promise.all(

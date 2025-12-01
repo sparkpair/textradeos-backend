@@ -1,9 +1,13 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
-import userRoutes from "./routes/userRoutes.js";
+
 import connectDB from "./config/db.js";
+
+import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
+
+import authRoutes from "./routes/authRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import articleRoutes from "./routes/articleRoutes.js";
@@ -11,7 +15,8 @@ import invoiceRoutes from "./routes/invoiceRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
+import exportRoutes from "./routes/exportRoutes.js";
+
 import { protect } from "./middlewares/authMiddleware.js";
 
 dotenv.config();
@@ -41,6 +46,7 @@ app.use("/api/invoices", protect, invoiceRoutes);
 app.use("/api/payments", protect, paymentRoutes);
 app.use("/api/subscriptions", protect, subscriptionRoutes);
 app.use("/api/dashboard", protect, dashboardRoutes);
+app.use("/api/export-data", protect, exportRoutes);
 
 // Middlewares
 app.use(notFound);
