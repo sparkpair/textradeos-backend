@@ -32,7 +32,7 @@ export const createCustomer = async (req, res) => {
 // 🔹 Get All Customers with Balance
 export const getCustomers = async (req, res) => {
   try {
-    const businessId = req.user.businessId;
+    const businessId = req.user.businessId._id;
 
     const customers = await Customer.aggregate([
       { $match: { businessId } },
