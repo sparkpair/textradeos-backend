@@ -5,9 +5,12 @@ import {
   getSubscriptionById,
   updateSubscription,
   deleteSubscription,
+  getMySubscriptionStatus,
 } from "../controllers/subscriptionController.js";
 
 const router = express.Router();
+
+router.route('/my-status').get(getMySubscriptionStatus);
 
 router.route("/")
   .get(getSubscriptions)

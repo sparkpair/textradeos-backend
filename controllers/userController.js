@@ -20,55 +20,31 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: "Invalid username or password" });
     }
 
-    // Already logged in from another device?
+    // Active session and User status checks
     const activeSession = await Session.findOne({ userId: user._id, isActive: true });
-    if (activeSession) {
-      return res.status(403).json({ message: "User already logged in on another device." });
-    }
+    if (activeSession) return res.status(403).json({ message: "User already logged in on another device." });
+    if (!user.isActive) return res.status(403).json({ message: "User is inactive." });
 
-    // User inactive?
-    if (!user.isActive) {
-      return res.status(403).json({ message: "User is inactive." });
-    }
+    let isReadOnly = false;
 
-    // ------------------------
-    // Developer → NO CHECKS
-    // ------------------------
+    // Subscription Logic
     if (user.role !== "developer") {
-
       const business = user.businessId;
+      if (!business || !business.isActive) return res.status(403).json({ message: "Business is inactive." });
 
-      if (!business || !business.isActive) {
-        return res.status(403).json({ message: "Business is inactive." });
-      }
-
-      // Latest subscription (multiple allowed)
-      const subscription = await Subscription.findOne({
-        businessId: business._id
-      }).sort({ endDate: -1 });
+      const subscription = await Subscription.findOne({ businessId: business._id }).sort({ endDate: -1 });
 
       if (!subscription) {
-        return res.status(403).json({ message: "No subscription found." });
-      }
-
-      const now = new Date();
-      const start = new Date(subscription.startDate);
-      const end = new Date(subscription.endDate);
-
-      if (now < start) {
-        return res.status(403).json({
-          message: `Your subscription starts on ${start.toDateString()}.`
-        });
-      }
-
-      if (now > end) {
-        return res.status(403).json({
-          message: `Subscription expired on ${end.toDateString()}.`
-        });
+        isReadOnly = true; 
+      } else {
+        const now = new Date();
+        const end = new Date(subscription.endDate);
+        if (now > end) {
+          isReadOnly = true; // Expired → Allow login, but Read Only
+        }
       }
     }
 
-    // Create session
     const session = await Session.create({
       userId: user._id,
       userAgent: req.headers["user-agent"],
@@ -87,6 +63,7 @@ export const loginUser = async (req, res) => {
       role: user.role,
       businessId: user.businessId?._id || null,
       businessName: user.businessId?.name || null,
+      isReadOnly, // Sending this to frontend
       token,
       sessionId: session._id,
     });

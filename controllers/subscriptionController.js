@@ -96,3 +96,37 @@ export const deleteSubscription = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const getMySubscriptionStatus = async (req, res) => {
+  try {
+    // Check if user exists (middleware check)
+    if (!req?.user?.businessId) {
+      return res.status(401).json({ message: "Unauthorized: No Business ID found" });
+    }
+
+    const subscription = await Subscription.findOne({ 
+      businessId: req.user.businessId 
+    })
+    .populate("businessId", "name")
+    .sort({ createdAt: -1 });
+
+    if (!subscription) {
+      return res.status(404).json({ message: "No subscription found" });
+    }
+
+    // Logic for dates
+    const today = new Date();
+    const endDate = new Date(subscription.endDate);
+    const diffDays = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+
+    res.json({
+      ...subscription.toObject(),
+      daysRemaining: diffDays > 0 ? diffDays : 0,
+      isExpired: diffDays <= 0
+    });
+
+  } catch (error) {
+    console.error("Backend Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
