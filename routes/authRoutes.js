@@ -1,10 +1,11 @@
 import express from "express";
 import User from "../models/User.js";
 import Subscription from "../models/Subscription.js";
+import { protect } from "../middlewares/authMiddleware.js";
 const router = express.Router();
 
 // GET /auth/status
-router.get("/status", async (req, res) => {
+router.get("/status", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).populate("businessId");
     if (!user) return res.status(401).json({ message: "Invalid token" });

@@ -37,7 +37,7 @@ app.use(async (req, res, next) => {
 });
 
 // Routes
-app.use("/api/auth", protect, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/businesses", protect, businessRoutes);
 app.use("/api/customers", protect, customerRoutes);
