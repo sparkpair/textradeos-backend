@@ -37,6 +37,13 @@ app.use(async (req, res, next) => {
 });
 
 // Routes
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "success",
+    message: "Server is running smoothly",
+    timestamp: new Date().toISOString()
+  });
+});
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/businesses", protect, businessRoutes);
