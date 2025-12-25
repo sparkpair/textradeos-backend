@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Invoice from "../models/Invoice.js";
 import Customer from "../models/Customer.js";
 import Payment from "../models/Payment.js";
@@ -6,35 +7,37 @@ import Subscription from "../models/Subscription.js";
 import User from "../models/User.js";
 import Session from "../models/Session.js";
 
-// 1️⃣ Stats
+// 1️⃣ Stats Controller
 export const stats = async (req, res) => {
   try {
-    const role = req.user.role;
-    const businessId = req.user.businessId || null;
+    const { role, businessId: rawBusinessId } = req.user;
 
+    // Dates Calculation
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(today.getDate() + 1);
-
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // =====================================================
-    //                🟢  DEVELOPER DASHBOARD
+    //                🟢 DEVELOPER DASHBOARD
     // =====================================================
     if (role === "developer") {
-      const totalBusinesses = await Business.countDocuments();
-      const activeBusinesses = await Business.countDocuments({ isActive: true });
-
-      const expiredSubscriptions = await Subscription.countDocuments({
-        endDate: { $lt: new Date() }
-      });
-
-      const totalUsers = await User.countDocuments({ role: { $ne: "developer" } });
-
-      const totalRevenueAgg = await Subscription.aggregate([
-        { $match: { paymentStatus: "paid" } },
-        { $group: { _id: null, total: { $sum: "$price" } } }
+      const [
+        totalBusinesses,
+        activeBusinesses,
+        expiredSubscriptions,
+        totalUsers,
+        totalRevenueAgg
+      ] = await Promise.all([
+        Business.countDocuments(),
+        Business.countDocuments({ isActive: true }),
+        Subscription.countDocuments({ endDate: { $lt: new Date() } }),
+        User.countDocuments({ role: { $ne: "developer" } }),
+        Subscription.aggregate([
+          { $match: { paymentStatus: "paid" } },
+          { $group: { _id: null, total: { $sum: "$price" } } }
+        ])
       ]);
 
       return res.json({
@@ -48,40 +51,37 @@ export const stats = async (req, res) => {
     }
 
     // =====================================================
-    //                 🟡  NORMAL USER DASHBOARD
+    //                🟡 NORMAL USER / ADMIN DASHBOARD
     // =====================================================
-    // Today sales
-    const todaySales = await Invoice.aggregate([
-      { $match: { businessId, createdAt: { $gte: today } } },
-      { $group: { _id: null, total: { $sum: "$netAmount" } } }
+    
+    // String ID ko MongoDB ObjectId mein convert karna zaroori hai aggregation ke liye
+    const bId = new mongoose.Types.ObjectId(rawBusinessId);
+
+    const [todaySales, monthlySales, todayPayments, monthlyPayments] = await Promise.all([
+      // Today Sales
+      Invoice.aggregate([
+        { $match: { businessId: bId, createdAt: { $gte: today } } },
+        { $group: { _id: null, total: { $sum: "$netAmount" } } }
+      ]),
+      // Monthly Sales
+      Invoice.aggregate([
+        { $match: { businessId: bId, createdAt: { $gte: monthStart } } },
+        { $group: { _id: null, total: { $sum: "$netAmount" } } }
+      ]),
+      // Today Payments
+      Payment.aggregate([
+        { $match: { businessId: bId, createdAt: { $gte: today, $lt: tomorrow } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ]),
+      // Monthly Payments
+      Payment.aggregate([
+        { $match: { businessId: bId, createdAt: { $gte: monthStart } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } }
+      ])
     ]);
 
-    // Monthly sales
-    const monthlySales = await Invoice.aggregate([
-      { $match: { businessId, createdAt: { $gte: monthStart } } },
-      { $group: { _id: null, total: { $sum: "$netAmount" } } }
-    ]);
-
-    // Today's payments
-    const todayPayments = await Payment.aggregate([
-      { 
-        $match: { 
-          businessId,
-          createdAt: { $gte: today, $lt: tomorrow },
-        } 
-      },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
-    ]);
-
-    // Monthly payments
-    const monthlyPayments = await Payment.aggregate([
-      { $match: { businessId, createdAt: { $gte: monthStart } } },
-      { $group: { _id: null, total: { $sum: "$amount" } } }
-    ]);
-
-    // Normal user response
     return res.json({
-      role: "user",
+      role: role,
       todaySales: todaySales[0]?.total || 0,
       monthlySales: monthlySales[0]?.total || 0,
       todayPayments: todayPayments[0]?.total || 0,
@@ -89,31 +89,26 @@ export const stats = async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Stats Error:", err);
+    res.status(500).json({ message: "Server error while fetching stats" });
   }
 };
 
-// 2️⃣ Sales Chart Data
+// 2️⃣ Sales Chart Data Controller
 export const sales = async (req, res) => {
   try {
-    const role = req.user.role;
-    const businessId = req.user.businessId || null;
-
+    const { role, businessId: rawBusinessId } = req.user;
     const { start, end } = req.query;
+
     const startDate = new Date(start);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(end);
     endDate.setHours(23, 59, 59, 999);
 
-    // Developer Chart = New Businesses Per Day
+    // Developer Chart: New Businesses
     if (role === "developer") {
       const result = await Business.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: startDate, $lte: endDate }
-          }
-        },
+        { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
         {
           $group: {
             _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -122,39 +117,15 @@ export const sales = async (req, res) => {
         },
         { $sort: { "_id": 1 } }
       ]);
-
       return res.json(result.map(r => ({ date: r._id, amount: r.total })));
     }
 
-    // Admin Chart = Daily Sales of Business
-    if (role === "admin") {
-      const result = await Invoice.aggregate([
-        {
-          $match: {
-            businessId,
-            createdAt: { $gte: startDate, $lte: endDate }
-          }
-        },
-        {
-          $group: {
-            _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            totalAmount: { $sum: "$netAmount" }
-          }
-        },
-        { $sort: { "_id": 1 } }
-      ]);
-
-      return res.json(result.map(r => ({
-        date: r._id,
-        amount: r.totalAmount
-      })));
-    }
-
-    // Normal User Chart
+    // User/Admin Chart: Daily Sales
+    const bId = new mongoose.Types.ObjectId(rawBusinessId);
     const result = await Invoice.aggregate([
       {
         $match: {
-          businessId,
+          businessId: bId,
           createdAt: { $gte: startDate, $lte: endDate }
         }
       },
@@ -167,27 +138,24 @@ export const sales = async (req, res) => {
       { $sort: { "_id": 1 } }
     ]);
 
-    return res.json(result.map(r => ({
+    res.json(result.map(r => ({
       date: r._id,
       amount: r.totalAmount
     })));
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Sales Chart Error:", err);
+    res.status(500).json({ message: "Server error while fetching chart data" });
   }
 };
 
+// 3️⃣ Active Users (Developer Only)
 export const getLoggedInUsers = async (req, res) => {
   try {
     const sessions = await Session.find({ isActive: true }).populate({
       path: "userId",
       select: "name businessId role",
-      populate: {
-        path: "businessId",
-        model: "Business",
-        select: "name"
-      }
+      populate: { path: "businessId", select: "name" }
     });
 
     const activeUsers = sessions
@@ -195,18 +163,14 @@ export const getLoggedInUsers = async (req, res) => {
       .map(s => ({
         userId: s.userId._id,
         name: s.userId.name,
-        businessId: s.userId.businessId?._id || null,
         businessName: s.userId.businessId?.name || "N/A",
         loginTime: s.loginTime,
-        lastActive: s.updatedAt,
-        ipAddress: s.ipAddress || null,
-        userAgent: s.userAgent || null
+        ipAddress: s.ipAddress,
+        userAgent: s.userAgent
       }));
 
     res.json(activeUsers);
-
   } catch (err) {
-    console.error("Error fetching active users:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error fetching active users" });
   }
 };
