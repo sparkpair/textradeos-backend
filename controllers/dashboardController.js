@@ -60,12 +60,12 @@ export const stats = async (req, res) => {
     const [todaySales, monthlySales, todayPayments, monthlyPayments] = await Promise.all([
       // Today Sales
       Invoice.aggregate([
-        { $match: { businessId: bId, createdAt: { $gte: today } } },
+        { $match: { businessId: bId, invoiceDate: { $gte: today } } },
         { $group: { _id: null, total: { $sum: "$netAmount" } } }
       ]),
       // Monthly Sales
       Invoice.aggregate([
-        { $match: { businessId: bId, createdAt: { $gte: monthStart } } },
+        { $match: { businessId: bId, invoiceDate: { $gte: monthStart } } },
         { $group: { _id: null, total: { $sum: "$netAmount" } } }
       ]),
       // Today Payments
@@ -126,12 +126,12 @@ export const sales = async (req, res) => {
       {
         $match: {
           businessId: bId,
-          createdAt: { $gte: startDate, $lte: endDate }
+          invoiceDate: { $gte: startDate, $lte: endDate }
         }
       },
       {
         $group: {
-          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$invoiceDate" } },
           totalAmount: { $sum: "$netAmount" }
         }
       },

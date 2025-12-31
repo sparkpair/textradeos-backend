@@ -28,48 +28,44 @@ export const createInvoice = async (req, res) => {
     const userId = req.user._id;
     const businessId = req.user.businessId;
 
-    const { customerId, items, discount = 0, grossAmount, netAmount } = req.body;
+    // 1. req.body se 'date' ko nikaalein (Jo humne frontend se payload mein bheji hai)
+    const { customerId, items, discount = 0, grossAmount, netAmount, date } = req.body;
 
-    if (!customerId) return res.status(400).json({ message: "Customer ID is required" });
+    const isWalkIn = !customerId;
+
     if (!Array.isArray(items) || items.length === 0)
       return res.status(400).json({ message: "Invoice must contain items" });
 
-    // Validate item structure
-    for (const item of items) {
-      if (!item.articleId || !item.quantity) {
-        return res.status(400).json({ message: "Each item must include articleId and quantity" });
-      }
-
-      // ✅ Check stock for each article
-      const currentStock = await getCurrentStock(item.articleId);
-      if (item.quantity > currentStock) {
-        return res.status(400).json({
-          message: `Not enough stock for article ${item.articleId}. Available: ${currentStock}`,
-        });
-      }
-    }
-
-    // Fetch price snapshots
-    const articlePrices = {};
+    const itemsWithSnapshot = [];
     for (const item of items) {
       const article = await Article.findById(item.articleId);
-      if (!article)
-        return res.status(400).json({ message: "Invalid article ID provided" });
-      articlePrices[item.articleId] = article.selling_price;
+      if (!article) return res.status(400).json({ message: "Invalid article ID" });
+
+      if (item.quantity > article.stock) {
+        return res.status(400).json({
+          message: `Not enough stock for ${article.article_no}. Available: ${article.stock}`,
+        });
+      }
+
+      itemsWithSnapshot.push({
+        articleId: item.articleId,
+        quantity: item.quantity,
+        selling_price_snapshot: article.selling_price,
+      });
+
+      // 🔥 Zaroori: Article ka stock bhi update karein (minus quantity)
+      article.stock -= item.quantity;
+      await article.save();
     }
 
-    const itemsWithSnapshot = items.map((item) => ({
-      ...item,
-      selling_price_snapshot: articlePrices[item.articleId],
-    }));
-
-    // Generate invoice number
     const invoiceNumber = await generateInvoiceNumber(businessId);
 
-    // Create invoice
+    // 2. Invoice create karte waqt 'invoiceDate' field set karein
     const invoice = await Invoice.create({
       invoiceNumber,
-      customerId,
+      invoiceDate: date || new Date(), // User ki select ki hui date
+      customerId: customerId || null,
+      isWalkIn, 
       items: itemsWithSnapshot,
       discount,
       grossAmount,
@@ -78,17 +74,12 @@ export const createInvoice = async (req, res) => {
       businessId,
     });
 
-    // Populate customer and articles
     const populatedInvoice = await Invoice.findById(invoice._id)
       .populate({ path: "customerId", select: "_id name phone_no" })
       .populate({ path: "items.articleId", select: "_id article_no" });
 
     res.status(201).json(populatedInvoice);
   } catch (error) {
-    console.error("Error creating invoice:", error);
-    if (error.code === 11000) {
-      return res.status(400).json({ message: "Duplicate invoice number. Please try again." });
-    }
     res.status(500).json({ message: error.message });
   }
 };

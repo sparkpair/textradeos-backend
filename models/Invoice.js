@@ -23,10 +23,20 @@ const invoiceSchema = new mongoose.Schema(
       required: true,
     },
 
+    invoiceDate: {
+      type: Date,
+      default: Date.now, // Agar date nahi aati toh aaj ki hogi
+    },
+
     customerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: true,
+      required: false, // Isko false kar dein
+    },
+
+    isWalkIn: { // Ye field add karein track karne ke liye
+      type: Boolean,
+      default: false,
     },
 
     items: {
