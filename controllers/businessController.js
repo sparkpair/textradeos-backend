@@ -1,7 +1,6 @@
 import Business from "../models/Business.js";
 import Session from "../models/Session.js";
 import User from "../models/User.js";
-import { io } from "../server.js";
 
 // 🔹 Create Business + Linked User
 export const createBusiness = async (req, res) => {
@@ -155,12 +154,6 @@ export const toggleBusinessStatus = async (req, res) => {
         await latestSession.save();
       }
     }
-
-    // emit event
-    io.emit("business-status-changed", {
-      businessId: business._id,
-      isActive: newStatus,
-    });
 
     res.status(200).json({
       message: `Business is now ${newStatus ? "Active" : "Inactive"}`,
